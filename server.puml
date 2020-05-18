@@ -1,0 +1,17 @@
+
+@startuml uml
+
+start
+
+:start server;
+:start listening socket;
+
+repeat
+   while ( has listener newly connected socket? ) is (yes)
+      :add socketID to activeSockets;
+   endwhile
+
+repeat while( endless loop )
+
+
+@enduml

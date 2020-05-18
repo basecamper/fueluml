@@ -1,0 +1,232 @@
+@startuml classes
+/'hide circle'/
+skinparam packageStyle rectangle
+skinparam PackageBorderColor grey
+skinparam DefaultFontName arial
+skinparam shadowing false
+skinparam stereotypeCBackgroundColor<<package>> lightgray
+skinparam stereotypeCBackgroundColor<<static>> white
+skinparam stereotypeCBackgroundColor<<singleton>> #aff
+'skinparam PackageBackgroundColor<<generated from db>> lightgreen
+/' ------------------------------------------------------------------------------------------------ '/
+!unquoted function getSpaceIfHasSize($string="")
+!if ($string == "")
+!return ""
+!else
+!return " "
+!endif
+!endfunction
+!function color($text, $color)
+!$result = "<color:" + $color + ">" + $text +"</color>"
+!return $result
+!endfunction
+!function createLRV($l, $r, $color)
+!$result = "<color:" + $color + ">" + $l + "</color>" + getSpaceIfHasSize($r) + $r
+!return $result
+!endfunction
+/' ------------------------------------------------------------------------------------------------ '/
+!unquoted function array($type="",$text="",$size="") !return $type + "[" + $size + "]" + getSpaceIfHasSize($text) + $text
+
+!unquoted function int($text="")                     !return createLRV("int", $text, "blue")
+!unquoted function long($text="")                    !return createLRV("long", $text, "blue")
+!unquoted function string($text="")                  !return createLRV("string", $text, "green")
+!unquoted function char($text="")                    !return createLRV("char", $text, "blue")
+!unquoted function void($text="")                    !return createLRV("void", $text, "purple")
+!unquoted function obj($o="",$text="")               !return createLRV($o, $text, "green")
+
+!unquoted function NUMBER($text="")                  !return createLRV("NUMBER", $text,"red")
+!unquoted function VARCHAR($text="")                 !return createLRV("VARCHAR", $text,"red")
+!unquoted function ANYDATA($text="")                 !return createLRV("ANYDATA", $text,"red")
+
+!unquoted function COMMENT($text="")                 !return "<color:#888>//" + $text +"//</color>"
+
+!define table(x) class x <<(T,#FFAAAA)>>
+!define dbPackage(x) class x <<(P,lightblue)>>
+!define queue(x) class x <<(Q,lightblue)>>
+hide <<(T,#FFAAAA)>> methods
+hide <<(T,#FFAAAA)>> stereotypes
+hide <<(P,lightblue)>> methods
+hide <<(P,lightblue)>> stereotypes
+hide <<(Q,lightblue)>> methods
+hide <<(Q,lightblue)>> stereotypes
+hide <<fuel>> stereotypes
+/' ------------------------------------------------------------------------------------------------ '/
+' ----
+package fuel <<fuel>>
+{
+   class Fuel <<Singleton>>
+   {
+      -array(obj(Core)) cores
+      -array(obj(Server)) servers
+      +void() loop()
+   }
+   together
+   {
+
+      package fuel.context
+      {
+         class Connection <<sqlConnection>>
+         hide Connection members
+
+         class Context <<Singleton>>
+
+         class ConnectionPool <<static>>
+         {
+            +getConnection();
+            +releaseConnection();
+            +commit(obj(Connection, connection))
+            +rollback(obj(Connection, connection))
+         }
+      }
+
+      package fuel.server
+      {
+         class Server
+         {
+            -int(serverID)
+            -array(int(),socketIds)
+            -int(listener)
+
+            +Server(obj(Context) context, int(serverID))
+            +int() run()
+            -long() requestUserID(int(socketID))
+         }
+      }
+      /' ------------------------------------------------------------------------------------------------ '/
+      package fuel.core
+      {
+         class Core
+         {
+            -array(obj(User)) users
+            +Core(obj(Context) context)
+            +int() run()
+         }
+      }
+   }
+
+   package fuel.libs
+   {
+      package fuel.entities <<generated from db>>
+      {
+         class Message
+         {
+         }
+         class User
+         {
+         }
+      }
+
+      package fuel.supplier
+      {
+         class UserSupplier <<static>>
+         {
+            string() retrieveUserID(obj(Connection) connection, string(userHash) )
+            string() retrieveSessionID(obj(Connection) connection, long() userID )
+         }
+      }
+
+
+      package fuel.api
+      {
+         class CoreApi <<static>>
+         {
+         }
+         class UserApi <<static>>
+         {
+            int() addUser(obj(Connection) connection, string(name), string(userHash) ) COMMENT(might return sessionID)
+            +int() setUserStatus(obj(Connection) connection, long(userID))
+         }
+
+         class MessageApi <<static>>
+         {
+         }
+
+         class ServerApi <<static>>
+         {
+         }
+
+      }
+   }
+
+}
+
+package DB <<Database>>
+{
+   dbPackage(USER_API)
+   {
+   }
+   dbPackage(MESSAGE_API)
+   {
+   }
+   dbPackage(CORE_API)
+   {
+   }
+   dbPackage(SERVER_API)
+   {
+   }
+   queue(TO_USER)
+   {
+      NUMBER(USER_ID)
+      ANYDATA(MESSAGE)
+   }
+   queue(FROM_USER)
+   {
+      NUMBER(USER_ID)
+      ANYDATA(MESSAGE)
+   }
+   queue(FROM_CORE)
+   {
+      NUMBER(USER_ID)
+      ANYDATA(MESSAGE)
+   }
+   queue(TO_CORE)
+   {
+      NUMBER(USER_ID)
+      ANYDATA(MESSAGE)
+   }
+   table(USER)
+   {
+      NUMBER(USER_ID)
+      NUMBER(ONLINE)
+      NUMBER(STATUS)
+      NUMBER(DELETED)
+   }
+}
+Fuel o-- Core
+Fuel o-- Server
+
+Fuel o-- Context
+
+Context *-- ConnectionPool
+
+ConnectionPool o-- Connection
+
+Core *-- UserApi
+Server *-- UserApi
+Core *-- MessageApi
+Server *-- MessageApi
+
+MessageApi o-- Message
+UserApi o-- User
+
+Core *-- CoreApi
+Server *-- ServerApi
+
+Core *-- UserSupplier
+Server *-- UserSupplier
+
+UserSupplier o-- User
+UserSupplier .[#grey]. USER
+
+CoreApi .[#grey]. CORE_API
+ServerApi .[#grey]. SERVER_API
+MessageApi .[#grey]. MESSAGE_API
+UserApi .[#grey]. USER_API
+'User .[#grey]. USER
+
+MESSAGE_API .[#grey]. TO_USER
+MESSAGE_API .[#grey]. FROM_USER
+MESSAGE_API .[#grey]. TO_CORE
+MESSAGE_API .[#grey]. FROM_CORE
+
+@enduml
